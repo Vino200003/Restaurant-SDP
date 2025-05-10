@@ -73,11 +73,12 @@ function Sidebar() {
             </Link>
           </li>
           <li>
-            <Link to="/delivery" className={`nav-link ${isRouteActive('/delivery') ? 'active' : ''}`}>
+            <Link to="/delivery-management" className={`nav-link ${isRouteActive('/staff') ? 'active' : ''}`}>
               <span className="icon">🚚</span>
               Delivery Management
             </Link>
           </li>
+          
           <li>
             <Link to="/settings" className={`nav-link ${isRouteActive('/settings') ? 'active' : ''}`}>
               <span className="icon">⚙️</span>
