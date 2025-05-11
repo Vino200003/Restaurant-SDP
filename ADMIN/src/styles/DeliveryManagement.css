@@ -315,6 +315,45 @@
   color: #dc3545;
 }
 
+/* Rename in-transit to out_for_delivery for consistency */
+.status-out_for_delivery,
+.status-in-transit {
+  background-color: #e6f0ff;
+  color: #3f37c9;
+}
+
+/* Ensure we have styles for all possible status values */
+.status-delivered {
+  background-color: #e6f7ed;
+  color: #28a745;
+}
+
+.status-assigned {
+  background-color: #e7f5ff;
+  color: #3498db;
+}
+
+.status-pending {
+  background-color: #fff7e6;
+  color: #fd7e14;
+}
+
+/* Add a clearer indicator for Out For Delivery status */
+.deliveries-table .status-out_for_delivery::before,
+.deliveries-table .status-in-transit::before {
+  content: "🚚 ";
+}
+
+.deliveries-table .status-delivered::before {
+  content: "✓ ";
+}
+
+/* Update status badges in detail view */
+.detail-value .status-badge {
+  margin-left: 0.5rem;
+  padding: 0.25rem 0.75rem;
+}
+
 .delivery-actions {
   display: flex;
   flex-wrap: wrap;

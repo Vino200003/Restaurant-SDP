@@ -36,6 +36,17 @@ const CheckoutPage = () => {
   const [userProfile, setUserProfile] = useState(null);
   const [isEditingAddress, setIsEditingAddress] = useState(false);
 
+  // Update the state to include payment_type
+  const [checkoutData, setCheckoutData] = useState({
+    // ...existing checkout data properties
+    payment_type: 'card', // Default to card payment
+  });
+
+  // Find where the payment method state is initialized
+  // ...existing code...
+  // IMPORTANT: Check the initial value - it might be defaulting to 'card'
+  const [paymentMethod, setPaymentMethod] = useState('card'); // Is this defaulting to 'card'?
+
   // Fetch user profile and cart from localStorage
   useEffect(() => {
     const fetchUserProfileAndCart = async () => {
@@ -304,6 +315,17 @@ const CheckoutPage = () => {
     }
   };
 
+  // Add console logs in the handlePaymentMethodChange function
+  const handlePaymentMethodChange = (method) => {
+    console.log(`Payment method changed to: ${method}`);
+    setPaymentMethod(method);
+    
+    // After setting, let's immediately verify it updated
+    setTimeout(() => {
+      console.log(`Current payment method state after update: ${paymentMethod}`);
+    }, 0);
+  };
+
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -354,25 +376,22 @@ const CheckoutPage = () => {
         payment_method: formData.paymentMethod === 'credit-card' ? 'Credit Card' : 'Cash',
         delivery_address: deliveryAddressToUse, // Use the properly formatted address
         delivery_notes: formData.deliveryNotes || '',
-        pickup_time: deliveryMethod === 'pickup' ? 
-          `${formData.pickupDate} ${formData.pickupTime}` : null,
-        user_email: userData.email || '',
-        user_name: `${userData.first_name || ''} ${userData.last_name || ''}`.trim()
+        payment_type: formData.paymentMethod === 'credit-card' ? 'card' : 'cash',
+        payment_status: formData.paymentMethod === 'credit-card' ? 'paid' : 'unpaid',
+        paid_at: formData.paymentMethod === 'credit-card' ? new Date().toISOString() : null,
       };
-      
-      console.log('Placing order:', orderData);
-      
+
       // Check if all required item fields exist before submitting
       const missingFields = orderData.items.filter(item => !item.menu_id);
       if (missingFields.length > 0) {
         throw new Error('Some items are missing required fields. Please refresh and try again.');
       }
-      
+
       // Check if delivery address is provided for delivery orders
       if (orderData.order_type === 'Delivery' && !orderData.delivery_address) {
         throw new Error('Delivery address is required for delivery orders.');
       }
-      
+
       // Send order to backend API
       const response = await fetch('http://localhost:5000/api/orders', {
         method: 'POST',
@@ -410,6 +429,40 @@ const CheckoutPage = () => {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  // Update the placeOrder function to correctly set payment type and status
+  const placeOrder = async () => {
+    try {
+      setIsProcessing(true);
+      
+      console.log("Selected payment method:", paymentMethod);
+      
+      // Create order data with correct payment info
+      const orderData = {
+        // ...existing order data
+        
+        // Use correct payment type based on selection
+        payment_type: paymentMethod === 'card' ? 'card' : 'cash',
+        
+        // Set payment status based on payment type
+        payment_status: paymentMethod === 'card' ? 'paid' : 'unpaid',
+        
+        // Set paid_at timestamp only for paid card payments
+        paid_at: paymentMethod === 'card' ? new Date().toISOString() : null,
+        
+        // ...rest of existing orderData properties
+      };
+      
+      console.log("Order data payment info:", {
+        type: orderData.payment_type,
+        status: orderData.payment_status
+      });
+      
+      // ...existing API call and order submission code
+    } catch (error) {
+      // ...existing error handling
     }
   };
 
@@ -522,17 +575,19 @@ const CheckoutPage = () => {
                           </button>
                         </div>
                         
-                        <div className="form-group">
-                          <label htmlFor="address">Street Address</label>
-                          <input
-                            type="text"
-                            id="address"
-                            name="address"
-                            value={formData.address}
-                            onChange={handleChange}
-                            className={formErrors.address ? 'error' : ''}
-                          />
-                          {formErrors.address && <span className="error-text">{formErrors.address}</span>}
+                        <div className="form-row">
+                          <div className="form-group">
+                            <label htmlFor="address">Street Address</label>
+                            <input
+                              type="text"
+                              id="address"
+                              name="address"
+                              value={formData.address}
+                              onChange={handleChange}
+                              className={formErrors.address ? 'error' : ''}
+                            />
+                            {formErrors.address && <span className="error-text">{formErrors.address}</span>}
+                          </div>
                         </div>
                         
                         <div className="form-row">
@@ -670,7 +725,7 @@ const CheckoutPage = () => {
                     </div>
                   )}
                 </div>
-                
+
                 {/* The pickup section was incorrectly nested */}
                 {deliveryMethod === 'pickup' && (
                   <div className="form-section">
@@ -725,7 +780,6 @@ const CheckoutPage = () => {
               <div className="order-summary-container">
                 <div className="order-summary">
                   <h3>Order Summary</h3>
-                  
                   <div className="order-items">
                     {cart.map((item, index) => (
                       <div key={index} className="order-item">
@@ -757,8 +811,8 @@ const CheckoutPage = () => {
                     </div>
                   </div>
                   
-                  <button 
-                    type="submit" 
+                  <button
+                    type="submit"
                     className="place-order-btn"
                     disabled={isSubmitting}
                   >

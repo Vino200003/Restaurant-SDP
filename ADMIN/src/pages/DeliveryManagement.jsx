@@ -205,7 +205,7 @@ function DeliveryManagement() {
         setSelectedDelivery({ ...selectedDelivery, delivery_status: newStatus });
       }
       
-      notify(`Delivery status updated to: ${newStatus}`, 'success');
+      notify(`Delivery status updated to: ${formatDeliveryStatus(newStatus)}`, 'success');
       
       // Update stats
       fetchDeliveryStats();
@@ -286,17 +286,25 @@ function DeliveryManagement() {
     switch (status.toLowerCase()) {
       case 'delivered':
         return 'status-delivered';
-      case 'in transit':
+      case 'out_for_delivery':
         return 'status-in-transit';
-      case 'pending':
-        return 'status-pending';
       case 'assigned':
         return 'status-assigned';
-      case 'canceled':
-        return 'status-canceled';
+      case 'pending':
+        return 'status-pending';
       default:
         return '';
     }
+  };
+
+  // Add a function to format the delivery status for display
+  const formatDeliveryStatus = (status) => {
+    if (!status) return 'N/A';
+    
+    // Convert snake_case to Title Case
+    return status.split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
   };
 
   return (
@@ -372,11 +380,10 @@ function DeliveryManagement() {
               onChange={handleFilterChange}
             >
               <option value="">All Statuses</option>
-              <option value="Pending">Pending</option>
-              <option value="Assigned">Assigned</option>
-              <option value="In Transit">In Transit</option>
-              <option value="Delivered">Delivered</option>
-              <option value="Canceled">Canceled</option>
+              <option value="pending">Pending</option>
+              <option value="assigned">Assigned</option>
+              <option value="out_for_delivery">Out For Delivery</option>
+              <option value="delivered">Delivered</option>
             </select>
             
             <select 
@@ -447,7 +454,7 @@ function DeliveryManagement() {
                       <td className="address-cell">{delivery.delivery_address}</td>
                       <td>
                         <span className={`status-badge ${getStatusClass(delivery.delivery_status)}`}>
-                          {delivery.delivery_status}
+                          {formatDeliveryStatus(delivery.delivery_status)}
                         </span>
                       </td>
                       <td>{formatDate(delivery.estimated_delivery_time)}</td>
@@ -474,19 +481,19 @@ function DeliveryManagement() {
                             </button>
                           )}
                           
-                          {delivery.delivery_person_id && delivery.delivery_status === 'Assigned' && (
+                          {delivery.delivery_person_id && delivery.delivery_status === 'assigned' && (
                             <button 
                               className="transit-btn"
-                              onClick={() => updateDeliveryStatus(delivery.delivery_id, 'In Transit')}
+                              onClick={() => updateDeliveryStatus(delivery.delivery_id, 'out_for_delivery')}
                             >
-                              Mark In Transit
+                              Mark Out For Delivery
                             </button>
                           )}
                           
-                          {delivery.delivery_status === 'In Transit' && (
+                          {delivery.delivery_status === 'out_for_delivery' && (
                             <button 
                               className="delivered-btn"
-                              onClick={() => updateDeliveryStatus(delivery.delivery_id, 'Delivered')}
+                              onClick={() => updateDeliveryStatus(delivery.delivery_id, 'delivered')}
                             >
                               Mark Delivered
                             </button>
@@ -537,7 +544,7 @@ function DeliveryManagement() {
                     <div className="detail-row">
                       <span className="detail-label">Status:</span>
                       <span className={`status-text ${getStatusClass(selectedDelivery.delivery_status)}`}>
-                        {selectedDelivery.delivery_status}
+                        {formatDeliveryStatus(selectedDelivery.delivery_status)}
                       </span>
                     </div>
                     <div className="detail-row">
@@ -614,23 +621,23 @@ function DeliveryManagement() {
                     </button>
                   )}
                   
-                  {selectedDelivery.delivery_person_id && selectedDelivery.delivery_status === 'Assigned' && (
+                  {selectedDelivery.delivery_person_id && selectedDelivery.delivery_status === 'assigned' && (
                     <button 
                       className="transit-btn"
                       onClick={() => {
-                        updateDeliveryStatus(selectedDelivery.delivery_id, 'In Transit');
+                        updateDeliveryStatus(selectedDelivery.delivery_id, 'out_for_delivery');
                         setIsDetailsModalOpen(false);
                       }}
                     >
-                      Mark In Transit
+                      Mark Out For Delivery
                     </button>
                   )}
                   
-                  {selectedDelivery.delivery_status === 'In Transit' && (
+                  {selectedDelivery.delivery_status === 'out_for_delivery' && (
                     <button 
                       className="delivered-btn"
                       onClick={() => {
-                        updateDeliveryStatus(selectedDelivery.delivery_id, 'Delivered');
+                        updateDeliveryStatus(selectedDelivery.delivery_id, 'delivered');
                         setIsDetailsModalOpen(false);
                       }}
                     >

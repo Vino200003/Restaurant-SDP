@@ -2,7 +2,7 @@ const db = require('../config/db');
 
 // Get all orders with pagination and filtering
 exports.getAllOrders = (req, res) => {
-  const { status, type, page = 1, limit = 10 } = req.query;
+  const { status, type, paymentStatus, page = 1, limit = 10 } = req.query;
   const offset = (page - 1) * limit;
   
   let query = `
@@ -24,6 +24,11 @@ exports.getAllOrders = (req, res) => {
     params.push(type);
   }
   
+  if (paymentStatus) {
+    query += ' AND o.payment_status = ?';
+    params.push(paymentStatus);
+  }
+  
   query += ' ORDER BY o.created_at DESC LIMIT ? OFFSET ?';
   params.push(parseInt(limit), parseInt(offset));
   
@@ -39,11 +44,12 @@ exports.getAllOrders = (req, res) => {
     // Get total count for pagination
     const countQuery = `
       SELECT COUNT(*) as total FROM orders o
-      WHERE 1=1 ${status ? ' AND o.order_status = ?' : ''} ${type ? ' AND o.order_type = ?' : ''}
+      WHERE 1=1 ${status ? ' AND o.order_status = ?' : ''} ${type ? ' AND o.order_type = ?' : ''} ${paymentStatus ? ' AND o.payment_status = ?' : ''}
     `;
     const countParams = [];
     if (status) countParams.push(status);
     if (type) countParams.push(type);
+    if (paymentStatus) countParams.push(paymentStatus);
     
     db.query(countQuery, countParams, (countErr, countResults) => {
       if (countErr) {
@@ -119,125 +125,150 @@ exports.getOrderById = (req, res) => {
 };
 
 // Create a new order
-exports.createOrder = (req, res) => {
-  const { user_id, order_type, items, delivery_person_id = null, delivery_address = null } = req.body;
-  
-  if (!user_id || !order_type || !items || !Array.isArray(items) || items.length === 0) {
-    return res.status(400).json({ message: 'Invalid order data. Required fields: user_id, order_type, items (array)' });
-  }
-  
-  // Validate delivery address for delivery orders
-  if (order_type === 'Delivery' && !delivery_address) {
-    return res.status(400).json({ message: 'Delivery address is required for delivery orders' });
-  }
-  
-  // Extract menu IDs to validate
-  const menuIds = items.map(item => item.menu_id);
-  
-  // Begin transaction
-  db.beginTransaction(err => {
-    if (err) {
-      console.error('Error starting transaction:', err);
-      return res.status(500).json({ 
-        message: 'Error creating order', 
-        error: err.message 
-      });
+exports.createOrder = async (req, res) => {
+  try {
+    // Extract the payment_type from the request body
+    const { 
+      user_id, 
+      order_type, 
+      items, 
+      delivery_person_id = null, 
+      delivery_address = null,
+      payment_type, 
+      payment_status,
+      payment_amount,
+    } = req.body;
+    
+    // Log the payment type for debugging
+    console.log("Payment type received:", payment_type);
+    
+    if (!user_id || !order_type || !items || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ message: 'Invalid order data. Required fields: user_id, order_type, items (array)' });
     }
     
-    // First validate that all menu items exist
-    const menuValidationQuery = 'SELECT menu_id FROM menu WHERE menu_id IN (?)';
-    db.query(menuValidationQuery, [menuIds], (validationErr, validationResults) => {
-      if (validationErr) {
-        return db.rollback(() => {
-          console.error('Error validating menu items:', validationErr);
-          res.status(500).json({ 
-            message: 'Error validating menu items', 
-            error: validationErr.message 
-          });
+    // Validate delivery address for delivery orders
+    if (order_type === 'Delivery' && !delivery_address) {
+      return res.status(400).json({ message: 'Delivery address is required for delivery orders' });
+    }
+    
+    // Extract menu IDs to validate
+    const menuIds = items.map(item => item.menu_id);
+    
+    // Begin transaction
+    db.beginTransaction(err => {
+      if (err) {
+        console.error('Error starting transaction:', err);
+        return res.status(500).json({ 
+          message: 'Error creating order', 
+          error: err.message 
         });
       }
       
-      // Check if all menu items exist
-      const foundMenuIds = validationResults.map(item => item.menu_id);
-      const missingMenuIds = menuIds.filter(id => !foundMenuIds.includes(id));
-      
-      if (missingMenuIds.length > 0) {
-        return db.rollback(() => {
-          res.status(400).json({ 
-            message: 'Some menu items do not exist', 
-            missingMenuIds 
-          });
-        });
-      }
-      
-      // Calculate total amount
-      const total_amount = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-      
-      // Create order
-      const orderData = {
-        user_id,
-        order_type,
-        total_amount,
-        delivery_person_id: delivery_person_id,
-        delivery_address: order_type === 'Delivery' ? delivery_address : '' // Ensure delivery address is saved for delivery orders
-      };
-      
-      db.query('INSERT INTO orders SET ?', orderData, (orderErr, orderResult) => {
-        if (orderErr) {
+      // First validate that all menu items exist
+      const menuValidationQuery = 'SELECT menu_id FROM menu WHERE menu_id IN (?)';
+      db.query(menuValidationQuery, [menuIds], (validationErr, validationResults) => {
+        if (validationErr) {
           return db.rollback(() => {
-            console.error('Error creating order:', orderErr);
+            console.error('Error validating menu items:', validationErr);
             res.status(500).json({ 
-              message: 'Error creating order', 
-              error: orderErr.message 
+              message: 'Error validating menu items', 
+              error: validationErr.message 
             });
           });
         }
         
-        const order_id = orderResult.insertId;
+        // Check if all menu items exist
+        const foundMenuIds = validationResults.map(item => item.menu_id);
+        const missingMenuIds = menuIds.filter(id => !foundMenuIds.includes(id));
         
-        // Insert order items
-        const orderItems = items.map(item => [
-          order_id,
-          item.menu_id,
-          item.quantity,
-          item.price
-        ]);
+        if (missingMenuIds.length > 0) {
+          return db.rollback(() => {
+            res.status(400).json({ 
+              message: 'Some menu items do not exist', 
+              missingMenuIds 
+            });
+          });
+        }
         
-        const itemsQuery = 'INSERT INTO order_items (order_id, menu_id, quantity, price) VALUES ?';
+        // Calculate total amount
+        const total_amount = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
         
-        db.query(itemsQuery, [orderItems], (itemsErr) => {
-          if (itemsErr) {
+        // Create order
+        const orderData = {
+          user_id,
+          order_type,
+          total_amount,
+          delivery_person_id: delivery_person_id,
+          delivery_address: order_type === 'Delivery' ? delivery_address : '', // Ensure delivery address is saved for delivery orders
+          payment_type: payment_type || 'cash', // Default to cash if not specified
+          payment_status: payment_status || 'unpaid',
+          payment_amount, // Total amount to be paid
+          paid_at: payment_status === 'paid' ? new Date() : null, // Set paid_at if status is paid
+        };
+        
+        db.query('INSERT INTO orders SET ?', orderData, (orderErr, orderResult) => {
+          if (orderErr) {
             return db.rollback(() => {
-              console.error('Error adding order items:', itemsErr);
+              console.error('Error creating order:', orderErr);
               res.status(500).json({ 
-                message: 'Error adding order items', 
-                error: itemsErr.message 
+                message: 'Error creating order', 
+                error: orderErr.message 
               });
             });
           }
           
-          // Commit transaction
-          db.commit(commitErr => {
-            if (commitErr) {
+          const order_id = orderResult.insertId;
+          
+          // Insert order items
+          const orderItems = items.map(item => [
+            order_id,
+            item.menu_id,
+            item.quantity,
+            item.price
+          ]);
+          
+          const itemsQuery = 'INSERT INTO order_items (order_id, menu_id, quantity, price) VALUES ?';
+          
+          db.query(itemsQuery, [orderItems], (itemsErr) => {
+            if (itemsErr) {
               return db.rollback(() => {
-                console.error('Error committing transaction:', commitErr);
+                console.error('Error adding order items:', itemsErr);
                 res.status(500).json({ 
-                  message: 'Error creating order', 
-                  error: commitErr.message 
+                  message: 'Error adding order items', 
+                  error: itemsErr.message 
                 });
               });
             }
             
-            res.status(201).json({
-              message: 'Order created successfully',
-              order_id,
-              total_amount
+            // Commit transaction
+            db.commit(commitErr => {
+              if (commitErr) {
+                return db.rollback(() => {
+                  console.error('Error committing transaction:', commitErr);
+                  res.status(500).json({ 
+                    message: 'Error creating order', 
+                    error: commitErr.message 
+                  });
+                });
+              }
+              
+              res.status(201).json({
+                message: 'Order created successfully',
+                order_id,
+                total_amount
+              });
             });
           });
         });
       });
     });
-  });
+  } catch (error) {
+    console.error('Error creating order:', error);
+    res.status(500).json({ 
+      message: 'Error creating order', 
+      error: error.message 
+    });
+  }
 };
 
 // Update order status

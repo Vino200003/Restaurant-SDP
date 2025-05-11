@@ -609,3 +609,116 @@
   margin-right: 8px;
   flex-shrink: 0;
 }
+
+/* Payment information styling */
+.payment-info {
+  background-color: #f8f9fa;
+  padding: 1rem;
+  border-radius: 5px;
+  margin-bottom: 1.5rem;
+}
+
+.payment-info p {
+  display: flex;
+  align-items: center;
+  margin: 0.5rem 0;
+}
+
+.payment-info .status-badge {
+  margin-left: 0.5rem;
+}
+
+/* Payment status badges in the order table */
+.payment-status-badge {
+  display: inline-block;
+  padding: 0.35rem 0.75rem;
+  border-radius: 50px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-align: center;
+}
+
+.payment-status-paid {
+  background-color: #e6f7ed;
+  color: #28a745;
+}
+
+.payment-status-unpaid {
+  background-color: #fff7e6;
+  color: #ffc107;
+}
+
+.payment-status-failed {
+  background-color: #ffe6e6;
+  color: #dc3545;
+}
+
+/* Enhanced modal sections */
+.order-info-section, 
+.payment-section,
+.delivery-section {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  padding: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+/* Responsive fixes for payment section */
+@media (max-width: 768px) {
+  .payment-info p {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .payment-info .status-badge {
+    margin-left: 0;
+    margin-top: 0.25rem;
+  }
+}
+
+/* Payment status select dropdown */
+.payment-status-select {
+  padding: 0.3rem 0.5rem;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  background-color: white;
+  color: #212529;
+  font-weight: 500;
+  min-width: 100px;
+  cursor: pointer;
+  appearance: menulist;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  margin-left: 10px;
+}
+
+.payment-status-select:hover {
+  border-color: #adb5bd;
+}
+
+.payment-status-select option {
+  padding: 8px;
+  font-weight: normal;
+  color: #212529;
+}
+
+/* Style for the payment status dropdown in modal */
+.payment-info .status-update-select {
+  margin-left: 10px;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  background-color: white;
+  color: #212529;
+  font-weight: 500;
+  min-width: 100px;
+  cursor: pointer;
+  appearance: menulist;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.payment-info .status-update-select:hover {
+  border-color: #adb5bd;
+}

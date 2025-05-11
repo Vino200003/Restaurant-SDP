@@ -686,6 +686,26 @@ const ProfilePage = () => {
     }
   };
 
+  // Add this helper function for payment status styling
+  const getPaymentStatusClass = (status) => {
+    switch (status) {
+      case 'paid': return 'status-paid';
+      case 'unpaid': return 'status-unpaid';
+      case 'failed': return 'status-failed';
+      default: return '';
+    }
+  };
+
+  // Add this helper function to format delivery status - this was missing!
+  const formatDeliveryStatus = (status) => {
+    if (!status) return 'N/A';
+    
+    // Convert snake_case to Title Case
+    return status.split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
+
   if (isLoading) {
     return (
       <div className="profile-page">
@@ -1214,6 +1234,60 @@ const ProfilePage = () => {
                           )}</span>
                         </div>
                       </div>
+
+                      {/* Add Payment Information Section */}
+                      <div className="payment-info-section">
+                        <h4>Payment Information</h4>
+                        <div className="payment-info">
+                          <p>
+                            <span className="info-label">Status:</span>
+                            <span className={`payment-status ${getPaymentStatusClass(selectedOrder.payment_status)}`}>
+                              {selectedOrder.payment_status ? 
+                                selectedOrder.payment_status.charAt(0).toUpperCase() + selectedOrder.payment_status.slice(1) 
+                                : 'N/A'}
+                            </span>
+                          </p>
+                          <p>
+                            <span className="info-label">Method:</span>
+                            <span className="info-value">
+                              {selectedOrder.payment_type || 'N/A'}
+                            </span>
+                          </p>
+                          <p>
+                            <span className="info-label">Amount:</span>
+                            <span className="info-value">
+                              Rs. {selectedOrder.payment_amount ? 
+                                parseFloat(selectedOrder.payment_amount).toFixed(2) 
+                                : parseFloat(selectedOrder.total_amount).toFixed(2)}
+                            </span>
+                          </p>
+                          {selectedOrder.paid_at && (
+                            <p>
+                              <span className="info-label">Paid At:</span>
+                              <span className="info-value">{formatDate(selectedOrder.paid_at)}</span>
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Update Delivery Information section to include delivery status */}
+                      {selectedOrder.order_type === 'Delivery' && (
+                        <div className="delivery-info-section">
+                          <h4>Delivery Information</h4>
+                          <p>
+                            <span className="info-label">Address:</span>
+                            <span className="info-value">{selectedOrder.delivery_address || 'N/A'}</span>
+                          </p>
+                          {selectedOrder.delivery_status && (
+                            <p>
+                              <span className="info-label">Status:</span>
+                              <span className={`delivery-status status-${selectedOrder.delivery_status}`}>
+                                {formatDeliveryStatus(selectedOrder.delivery_status)}
+                              </span>
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <div className="modal-footer">
                       {isEditingOrder ? (

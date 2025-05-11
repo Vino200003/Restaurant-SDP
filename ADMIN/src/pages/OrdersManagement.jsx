@@ -17,7 +17,9 @@ function OrdersManagement() {
     pending: 0,
     completed: 0,
     cancelled: 0,
-    in_progress: 0
+    in_progress: 0,
+    paid: 0,
+    unpaid: 0
   });
   const [pagination, setPagination] = useState({
     page: 1,
@@ -30,6 +32,7 @@ function OrdersManagement() {
   const [filters, setFilters] = useState({
     status: '',
     orderType: '',
+    paymentStatus: '', // Add payment status filter
     searchTerm: '',
     searchOption: 'all', // Add search option for dropdown
     page: 1,
@@ -74,6 +77,7 @@ function OrdersManagement() {
         limit: filters.limit, 
         status: filters.status,
         orderType: filters.orderType,
+        paymentStatus: filters.paymentStatus, // Log payment status filter
         startDate: startDate,
         endDate: endDate
       });
@@ -83,6 +87,7 @@ function OrdersManagement() {
         limit: filters.limit,
         status: filters.status,
         orderType: filters.orderType,
+        paymentStatus: filters.paymentStatus, // Include payment status in API call
         startDate: startDate,
         endDate: endDate
       });
@@ -121,7 +126,9 @@ function OrdersManagement() {
         pending: data.pending_orders || 0,
         completed: data.completed_orders || 0,
         cancelled: data.cancelled_orders || 0,
-        in_progress: data.in_progress_orders || data.orders_in_progress || 0
+        in_progress: data.in_progress_orders || data.orders_in_progress || 0,
+        paid: data.paid_orders || 0,
+        unpaid: data.unpaid_orders || 0
       });
     } catch (error) {
       console.error('Error fetching order stats:', error);
@@ -131,7 +138,9 @@ function OrdersManagement() {
         pending: 0,
         completed: 0,
         cancelled: 0,
-        in_progress: 0
+        in_progress: 0,
+        paid: 0,
+        unpaid: 0
       });
     }
   };
@@ -218,6 +227,7 @@ function OrdersManagement() {
     setFilters({
       status: '',
       orderType: '',
+      paymentStatus: '', // Reset payment status
       searchTerm: '',
       searchOption: 'all', // Reset to 'all'
       page: 1,
@@ -272,6 +282,37 @@ function OrdersManagement() {
     }
   };
 
+  // Add a function to update payment status
+  const handleUpdatePaymentStatus = async (orderId, newStatus) => {
+    try {
+      await orderService.updatePaymentStatus(orderId, newStatus);
+      
+      // Update local state
+      const updatedOrders = orders.map(order => 
+        order.order_id === orderId 
+          ? { ...order, payment_status: newStatus } 
+          : order
+      );
+      
+      setOrders(updatedOrders);
+      setFilteredOrders(updatedOrders.filter(order => 
+        !filters.status || order.order_status === filters.status
+      ));
+      
+      // If we're viewing this order in the modal, update it there too
+      if (selectedOrder && selectedOrder.order_id === orderId) {
+        setSelectedOrder({ ...selectedOrder, payment_status: newStatus });
+      }
+      
+      // Refresh order stats
+      fetchOrderStats();
+      
+      notify(`Order #${orderId} payment status updated to ${newStatus}`, 'success');
+    } catch (error) {
+      notify(`Error updating payment status: ${error.message}`, 'error');
+    }
+  };
+
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     
@@ -293,6 +334,34 @@ function OrdersManagement() {
       case 'Cancelled': return 'status-cancelled';
       default: return '';
     }
+  };
+
+  const getPaymentStatusClass = (status) => {
+    switch (status) {
+      case 'paid': return 'status-completed';
+      case 'unpaid': return 'status-pending';
+      case 'failed': return 'status-cancelled';
+      default: return '';
+    }
+  };
+
+  const getDeliveryStatusClass = (status) => {
+    switch (status) {
+      case 'delivered': return 'status-completed';
+      case 'out_for_delivery': return 'status-processing';
+      case 'assigned': return 'status-processing';
+      case 'pending': return 'status-pending';
+      default: return '';
+    }
+  };
+
+  const formatDeliveryStatus = (status) => {
+    if (!status) return 'N/A';
+    
+    // Convert snake_case to Title Case
+    return status.split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
   };
 
   // Handle pagination
@@ -379,6 +448,18 @@ function OrdersManagement() {
               <option value="Delivery">Delivery</option>
             </select>
             
+            {/* Add payment status filter dropdown */}
+            <select 
+              name="paymentStatus" 
+              value={filters.paymentStatus}
+              onChange={handleFilterChange}
+            >
+              <option value="">All Payment Statuses</option>
+              <option value="paid">Paid</option>
+              <option value="unpaid">Unpaid</option>
+              <option value="failed">Failed</option>
+            </select>
+            
             <button className="reset-filters-btn" onClick={resetFilters}>
               Reset Filters
             </button>
@@ -398,6 +479,7 @@ function OrdersManagement() {
                   <th>Date</th>
                   <th>Total</th>
                   <th>Status</th>
+                  <th>Payment</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -413,6 +495,11 @@ function OrdersManagement() {
                       <td>
                         <span className={`status-badge ${getStatusClass(order.order_status)}`}>
                           {order.order_status}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={`status-badge ${getPaymentStatusClass(order.payment_status)}`}>
+                          {order.payment_status ? order.payment_status.charAt(0).toUpperCase() + order.payment_status.slice(1) : 'N/A'}
                         </span>
                       </td>
                       <td>
@@ -504,6 +591,33 @@ function OrdersManagement() {
                   </div>
                 </div>
                 
+                <div className="payment-section">
+                  <h3>Payment Information</h3>
+                  <div className="payment-info">
+                    <p>
+                      <strong>Status:</strong> 
+                      <span className={`status-badge ${getPaymentStatusClass(selectedOrder.payment_status)}`}>
+                        {selectedOrder.payment_status ? selectedOrder.payment_status.charAt(0).toUpperCase() + selectedOrder.payment_status.slice(1) : 'N/A'}
+                      </span>
+                      
+                      {/* Add payment status update dropdown */}
+                      <select 
+                        className="status-update-select payment-status-select"
+                        value={selectedOrder.payment_status || ''}
+                        onChange={(e) => handleUpdatePaymentStatus(selectedOrder.order_id, e.target.value)}
+                        style={{ marginLeft: '10px' }}
+                      >
+                        <option value="unpaid">Unpaid</option>
+                        <option value="paid">Paid</option>
+                        <option value="failed">Failed</option>
+                      </select>
+                    </p>
+                    <p><strong>Method:</strong> {selectedOrder.payment_type ? selectedOrder.payment_type.charAt(0).toUpperCase() + selectedOrder.payment_type.slice(1) : 'N/A'}</p>
+                    <p><strong>Amount:</strong> Rs. {selectedOrder.payment_amount ? parseFloat(selectedOrder.payment_amount).toFixed(2) : parseFloat(selectedOrder.total_amount).toFixed(2)}</p>
+                    {selectedOrder.paid_at && <p><strong>Paid At:</strong> {formatDate(selectedOrder.paid_at)}</p>}
+                  </div>
+                </div>
+                
                 <div className="order-items-section">
                   <h3>Ordered Items</h3>
                   <table className="order-items-table">
@@ -544,6 +658,14 @@ function OrdersManagement() {
                     )}
                     {selectedOrder.delivery_address && (
                       <p><strong>Delivery Address:</strong> {selectedOrder.delivery_address}</p>
+                    )}
+                    {selectedOrder.delivery_status && (
+                      <p>
+                        <strong>Delivery Status:</strong> 
+                        <span className={`status-badge ${getDeliveryStatusClass(selectedOrder.delivery_status)}`}>
+                          {formatDeliveryStatus(selectedOrder.delivery_status)}
+                        </span>
+                      </p>
                     )}
                   </div>
                 )}

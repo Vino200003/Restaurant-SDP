@@ -9,6 +9,7 @@ export const getAllOrders = async (params = {}) => {
     if (params.limit) queryParams.append('limit', params.limit);
     if (params.status) queryParams.append('status', params.status);
     if (params.orderType) queryParams.append('type', params.orderType);
+    if (params.paymentStatus) queryParams.append('paymentStatus', params.paymentStatus); // Add payment status
     if (params.startDate) queryParams.append('startDate', params.startDate);
     if (params.endDate) queryParams.append('endDate', params.endDate);
     
@@ -138,6 +139,37 @@ export const updateOrderStatus = async (orderId, newStatus) => {
     return await response.json();
   } catch (error) {
     console.error('Update order status service error:', error);
+    throw error;
+  }
+};
+
+// Update payment status
+export const updatePaymentStatus = async (orderId, newStatus) => {
+  try {
+    // Get admin token from localStorage
+    const token = localStorage.getItem('adminToken');
+    
+    if (!token) {
+      throw new Error('Authentication required');
+    }
+    
+    const response = await fetch(`${API_URL}/api/admin/orders/${orderId}/payment-status`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ payment_status: newStatus })
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to update payment status');
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Update payment status service error:', error);
     throw error;
   }
 };
